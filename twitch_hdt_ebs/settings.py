@@ -10,7 +10,8 @@ from hearthsim.instrumentation.ssm import get_secure_parameters
 
 
 if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-	import sentry_sdk
+	import raven
+	from raven.transport import HTTPTransport
 
 	DEBUG = False
 	ALLOWED_HOSTS = [
@@ -22,22 +23,10 @@ if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
 else:
 	DEBUG = True
 	ALLOWED_HOSTS = ["*"]
-	sentry_sdk = None
+	raven = None
 
 
 params = get_secure_parameters("twitch_ebs", debug=DEBUG)
-
-if sentry_sdk:
-	from sentry_sdk.integrations.django import DjangoIntegration
-	from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
-
-	sentry_sdk.init(
-		dsn=params.get("SENTRY_RAVEN_DSN", ""),
-		integrations=[
-			DjangoIntegration(),
-			AwsLambdaIntegration(),
-		]
-	)
 
 SECRET_KEY = params.get("DJANGO_SECRET_KEY", "<local>")
 
@@ -64,6 +53,14 @@ INSTALLED_APPS = [
 	"hearthsim.identity.accounts",
 	"hearthsim.identity.oauth2",
 ]
+
+if raven:
+	INSTALLED_APPS.append("raven.contrib.django.raven_compat")
+	RAVEN_CONFIG = {
+		"dsn": params.get("SENTRY_RAVEN_DSN", ""),
+		"transport": HTTPTransport,
+	}
+
 
 MIDDLEWARE = [
 	"django.middleware.security.SecurityMiddleware",
